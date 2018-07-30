@@ -17,6 +17,7 @@
 #include <ddk/protocol/usb-mode-switch.h>
 #include <ddk/protocol/mailbox.h>
 #include <ddk/protocol/scpi.h>
+#include <ddktl/protocol/platform-bus.h>
 #include <lib/sync/completion.h>
 #include <zircon/boot/image.h>
 #include <zircon/types.h>
