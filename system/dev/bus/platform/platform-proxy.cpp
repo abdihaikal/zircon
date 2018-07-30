@@ -407,23 +407,6 @@ zx_status_t ProxyDevice::GetDeviceInfo(pdev_device_info_t* out_info) {
     return ZX_OK;
 }
 
-zx_status_t ProxyDevice::Create(zx_device_t* parent, const char* name, zx_handle_t rpc_channel) {
-    fbl::AllocChecker ac;
-    fbl::unique_ptr<platform_bus::ProxyDevice> proxy(new (&ac)
-                                                     platform_bus::ProxyDevice(parent, rpc_channel));
-    if (!ac.check()) {
-        return ZX_ERR_NO_MEMORY;
-    }
-
-    auto status = proxy->DdkAdd(name);
-    if (status != ZX_OK) {
-        return status;
-    }
-    // devmgr is now in charge of the device.
-    __UNUSED auto* dummy = proxy.release();
-    return ZX_OK;
-}
-
 zx_status_t ProxyDevice::DdkGetProtocol(uint32_t proto_id, void* out) {
     switch (proto_id) {
     case ZX_PROTOCOL_PLATFORM_DEV: {
@@ -475,6 +458,23 @@ zx_status_t ProxyDevice::DdkGetProtocol(uint32_t proto_id, void* out) {
 
 void ProxyDevice::DdkRelease() {
     delete this;
+}
+
+zx_status_t ProxyDevice::Create(zx_device_t* parent, const char* name, zx_handle_t rpc_channel) {
+    fbl::AllocChecker ac;
+    fbl::unique_ptr<platform_bus::ProxyDevice> proxy(new (&ac)
+                                                     platform_bus::ProxyDevice(parent, rpc_channel));
+    if (!ac.check()) {
+        return ZX_ERR_NO_MEMORY;
+    }
+
+    auto status = proxy->DdkAdd(name);
+    if (status != ZX_OK) {
+        return status;
+    }
+    // devmgr is now in charge of the device.
+    __UNUSED auto* dummy = proxy.release();
+    return ZX_OK;
 }
 
 } // namespace platform_bus

@@ -24,7 +24,7 @@
 //
 // :: Examples ::
 //
-// // A driver that implements a ZX_PROTOCOL_PLATFORM_DEV device.
+// // A driver that implements a ZX_PROTOCOL_PLATFORM_BUS device.
 // class PbusDevice;
 // using PbusDeviceType = ddk::Device<PbusDevice, /* ddk mixins */>;
 //

@@ -17,15 +17,120 @@
 #include <ddk/protocol/usb-mode-switch.h>
 #include <ddk/protocol/mailbox.h>
 #include <ddk/protocol/scpi.h>
-#include <ddktl/protocol/platform-bus.h>
 #include <lib/sync/completion.h>
 #include <zircon/boot/image.h>
 #include <zircon/types.h>
 
-typedef struct pdev_req pdev_req_t;
+#include <ddktl/device.h>
+#include <ddktl/protocol/iommu.h>
+#include <ddktl/protocol/platform-bus.h>
+#include <lib/zx/vmo.h>
+#include <fbl/macros.h>
 
 // this struct is local to platform-i2c.c
 typedef struct platform_i2c_bus platform_i2c_bus_t;
+
+namespace platform_bus {
+
+class PbusDevice;
+using PbusDeviceType = ddk::Device<PbusDevice, ddk::GetProtocolable>;
+
+class PbusDevice : public PbusDeviceType, public ddk::PbusProtocol<PbusDevice>,
+                   ddk::IommuProtocol<PbusDevice> {
+public:
+    static zx_status_t Create(zx_device_t* parent, const char* name, zx_handle_t zbi_vmo);
+
+    // device protocol implementation
+    zx_status_t DdkGetProtocol(uint32_t proto_id, void* out);
+    void DdkRelease();
+
+    // platform bus protocol implementation
+    zx_status_t SetProtocol(uint32_t proto_id, void* protocol);
+    zx_status_t WaitProtocol(uint32_t proto_id);
+    zx_status_t DeviceAdd(const pbus_dev_t* dev, uint32_t flags);
+    zx_status_t DeviceEnable(uint32_t vid, uint32_t pid, uint32_t did, bool enable);
+    const char* GetBoardName();
+
+    // IOMMU protocol implementation
+    zx_status_t GetBti(uint32_t iommu_index, uint32_t bti_id, zx_handle_t* out_handle);
+
+/*
+    // platform device protocol implementation
+    zx_status_t MapMmio(uint32_t index, uint32_t cache_policy, void** out_vaddr, size_t* out_size,
+                        zx_paddr_t* out_paddr, zx_handle_t* out_handle);
+    zx_status_t MapInterrupt(uint32_t index, uint32_t flags, zx_handle_t* out_handle);
+    zx_status_t GetBti(uint32_t index, zx_handle_t* out_handle);
+    zx_status_t GetDeviceInfo(pdev_device_info_t* out_info);
+
+    // canvas protocol implementation
+    zx_status_t CanvasConfig(zx_handle_t vmo, size_t offset, canvas_info_t* info, uint8_t* canvas_idx);
+    zx_status_t CanvasFree(uint8_t canvas_idx);
+
+    // clock protocol implementation
+    zx_status_t ClkEnable(uint32_t index);
+    zx_status_t ClkDisable(uint32_t index);
+
+    // GPIO protocol implementation
+    zx_status_t GpioConfig(uint32_t index, uint32_t flags);
+    zx_status_t GpioSetAltFunction(uint32_t index, uint64_t function);
+    zx_status_t GpioRead(uint32_t index, uint8_t* out_value);
+    zx_status_t GpioWrite(uint32_t index, uint8_t value);
+    zx_status_t GpioGetInterrupt(uint32_t index, uint32_t flags, zx_handle_t* out_handle);
+    zx_status_t GpioReleaseInterrupt(uint32_t index);
+    zx_status_t GpioSetPolarity(uint32_t index, uint32_t polarity);
+
+    // I2C protocol implementation
+    zx_status_t I2cTransact(uint32_t index, const void* write_buf, size_t write_length,
+                            size_t read_length, i2c_complete_cb complete_cb, void* cookie);
+    zx_status_t I2cGetMaxTransferSize(uint32_t index, size_t* out_size);
+
+    // SCPI protocol implementation
+    zx_status_t ScpiGetSensor(const char* name, uint32_t* sensor_id);
+    zx_status_t ScpiGetSensorValue(uint32_t sensor_id, uint32_t* sensor_value);
+    zx_status_t ScpiGetDvfsInfo(uint8_t power_domain, scpi_opp_t* opps);
+    zx_status_t ScpiGetDvfsIdx(uint8_t power_domain, uint16_t* idx);
+    zx_status_t ScpiSetDvfsIdx(uint8_t power_domain, uint16_t idx);
+
+    // USB mode switch protocol implementation
+    zx_status_t SetUsbMode(usb_mode_t mode);
+*/
+
+private:
+    explicit PbusDevice(zx_device_t* parent, zx_handle_t zbi_vmo, zx_handle_t iommu);
+
+    DISALLOW_COPY_ASSIGN_AND_MOVE(PbusDevice);
+
+    zx::vmo zbi_vmo_;
+
+    usb_mode_switch_protocol_t ums_;
+    gpio_protocol_t gpio_;
+    mailbox_protocol_t mailbox_;
+    scpi_protocol_t scpi_;
+    i2c_impl_protocol_t i2c_;
+    clk_protocol_t clk_;
+    canvas_protocol_t canvas_;
+    zx_handle_t resource_;   // root resource for platform bus
+    zbi_platform_id_t platform_id_;
+    uint8_t* metadata_;   // metadata extracted from ZBI
+    size_t metadata_size_;
+
+    list_node_t devices_;    // list of platform_dev_t
+
+    platform_i2c_bus_t* i2c_buses_;
+    uint32_t i2c_bus_count_;
+
+    zx_handle_t iommu_handle_;
+
+    sync_completion_t proto_completion_;
+
+};
+
+} // namespace platform_bus
+
+
+
+
+typedef struct pdev_req pdev_req_t;
 
 // context structure for the platform bus
 typedef struct {
